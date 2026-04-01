@@ -122,3 +122,58 @@ def test_format_value_string_input():
     # Test with string that starts with minus
     result = shap.utils._general.format_value("-123", "%0.03f")
     assert result == "\u2212" + "123"
+
+
+def test_safe_isinstance_with_numpy():
+    """Checks that safe_isinstance correctly identifies numpy arrays."""
+    arr = np.array([1, 2, 3])
+    assert shap.utils.safe_isinstance(arr, "numpy.ndarray")
+    assert not shap.utils.safe_isinstance(arr, "numpy.float64")
+
+
+def test_safe_isinstance_unloaded_module():
+    """A module that was never imported should return False, not raise."""
+    assert not shap.utils.safe_isinstance(42, "some_nonexistent_pkg.SomeClass")
+
+
+def test_safe_isinstance_list_of_paths():
+    arr = np.array([1.0])
+    assert shap.utils.safe_isinstance(arr, ["pandas.DataFrame", "numpy.ndarray"])
+
+
+def test_safe_isinstance_no_dot_raises():
+    with pytest.raises(ValueError, match="module path"):
+        shap.utils.safe_isinstance(42, "NoDotHere")
+
+
+@pytest.mark.parametrize(
+    "n,expected",
+    [
+        (1, "1st"),
+        (2, "2nd"),
+        (3, "3rd"),
+        (4, "4th"),
+        (11, "11th"),
+        (12, "12th"),
+        (13, "13th"),
+        (21, "21st"),
+        (111, "111th"),
+    ],
+)
+def test_ordinal_str(n, expected):
+    assert shap.utils.ordinal_str(n) == expected
+
+
+def test_shapley_coefficients_shape_and_positivity():
+    coeffs = shap.utils.shapley_coefficients(6)
+    assert coeffs.shape == (6,)
+    assert np.all(coeffs > 0)
+
+
+def test_opchain_apply_abs():
+    """OpChain.apply should replay chained ops on a real Explanation."""
+    exp = shap.Explanation(values=np.array([[1, -2], [-3, 4]]))
+    chain = shap.utils.OpChain().abs
+    result = chain.apply(exp)
+    np.testing.assert_array_equal(result.values, np.array([[1, 2], [3, 4]]))
+
